@@ -1,5 +1,3 @@
 requests
 schedule
 pytz
-gspread
-google-auth
