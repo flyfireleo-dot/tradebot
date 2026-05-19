@@ -965,7 +965,7 @@ def get_fx(b,q):
         return round(r.json()["rates"][q],2)
     except: return None
 
-def get_gift_nifty():
+def get_gift_nifty(market_data=None):
     """
     Fetch real GIFT Nifty (NSE IFSC) price.
     GIFT Nifty trades 6:30 AM - 11:30 PM IST almost 24 hours.
@@ -1004,7 +1004,19 @@ def get_gift_nifty():
     except: pass
 
     # Fallback: use Nikkei 225 + S&P weighted estimate
-    # This is smarter than just NIFTY+20 — uses overnight global moves
+    # 40% US (Dow) + 30% Nikkei + 30% HSI, scaled by 0.6 correlation factor to NIFTY
+    if market_data:
+        try:
+            nifty_price=market_data.get("nifty",{}).get("price")
+            if nifty_price:
+                dow_chg=market_data.get("dow",{}).get("change",0) or 0
+                nk_chg=market_data.get("nikkei",{}).get("change",0) or 0
+                hsi_chg=market_data.get("hsi",{}).get("change",0) or 0
+                global_impact=(dow_chg*0.4+nk_chg*0.3+hsi_chg*0.3)*0.6
+                gift_est=round(nifty_price*(1+global_impact/100),2)
+                return {"price":gift_est,"change":round(global_impact,2),"source":"Estimated"}
+        except: pass
+
     return None
 
 def interpret_gift(gift, nifty, alignment):
@@ -1036,7 +1048,7 @@ def fetch_data():
     d["aedinr"]={"price":get_fx("AED","INR"),"change":None}
 
     # ── REAL GIFT NIFTY ──
-    gift=get_gift_nifty()
+    gift=get_gift_nifty(d)
     if gift:
         d["gift"]=gift
         log.info(f"GIFT Nifty: {gift['price']} ({gift['change']:+.2f}%) via {gift['source']}")
